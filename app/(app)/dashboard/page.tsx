@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import DashboardCharts from './charts'
 import IncomeManager from './income-manager'
 import QuickChat from './quick-chat'
+import AnnualCharts from './annual-charts'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -14,8 +15,15 @@ export default async function DashboardPage() {
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  const yearStart = `${now.getFullYear()}-01-01`
+  const yearEnd = `${now.getFullYear()}-12-31`
 
-  const [{ data: income }, { data: transactions }, { data: categories }] = await Promise.all([
+  const MONTH_NAMES = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ]
+
+  const [{ data: income }, { data: transactions }, { data: categories }, { data: yearTransactions }, { data: yearIncome }] = await Promise.all([
     supabase.from('income').select('id, amount, source, date').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
     supabase
       .from('transactions')
@@ -25,7 +33,23 @@ export default async function DashboardPage() {
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase.from('categories').select('id, name').order('name'),
+    supabase.from('transactions').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
+    supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
   ])
+
+  const monthlyExpense = Array(12).fill(0)
+  const monthlyIncome = Array(12).fill(0)
+  for (const t of yearTransactions ?? []) {
+    monthlyExpense[new Date(t.date).getMonth()] += Number(t.amount)
+  }
+  for (const i of yearIncome ?? []) {
+    monthlyIncome[new Date(i.date).getMonth()] += Number(i.amount)
+  }
+  const annualChartData = MONTH_NAMES.map((name, i) => ({
+    name: name.slice(0, 3),
+    Pemasukan: monthlyIncome[i],
+    Pengeluaran: monthlyExpense[i],
+  }))
 
   const totalIncome = (income ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
   const totalExpense = (transactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
@@ -83,6 +107,10 @@ export default async function DashboardPage() {
           totalIncome={totalIncome}
           totalExpense={totalExpense}
         />
+      </div>
+
+      <div className="mb-6">
+        <AnnualCharts data={annualChartData} year={now.getFullYear()} />
       </div>
 
       <div className="card p-5">
