@@ -79,7 +79,7 @@ create policy "Users can delete own transactions" on transactions
 create or replace function create_default_categories()
 returns trigger as $$
 begin
-  insert into categories (user_id, name, color, is_default) values
+  insert into public.categories (user_id, name, color, is_default) values
     (new.id, 'Makanan & Minuman', '#f97316', true),
     (new.id, 'Transportasi', '#3b82f6', true),
     (new.id, 'Hiburan', '#a855f7', true),
@@ -89,7 +89,7 @@ begin
     (new.id, 'Lainnya', '#6b7280', true);
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created

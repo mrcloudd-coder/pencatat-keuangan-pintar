@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Download, Trash2, Plus } from 'lucide-react'
+import { Download, Trash2 } from 'lucide-react'
 
 type Category = { id: string; name: string; color: string }
 type Transaction = {
@@ -14,6 +13,7 @@ type Transaction = {
   date: string
   category: Category | Category[] | null
 }
+type MonthOption = { value: string; label: string }
 
 function getCategory(t: Transaction): Category | null {
   if (!t.category) return null
@@ -22,13 +22,14 @@ function getCategory(t: Transaction): Category | null {
 
 export default function TransactionsTable({
   initialTransactions,
-  categories,
+  monthOptions,
+  selectedMonth,
 }: {
   initialTransactions: Transaction[]
   categories: Category[]
+  monthOptions: MonthOption[]
+  selectedMonth: string
 }) {
-  const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
@@ -38,18 +39,11 @@ export default function TransactionsTable({
     router.refresh()
   }
 
-  async function handleAddCategory(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newCategoryName.trim()) return
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('categories').insert({ user_id: user.id, name: newCategoryName.trim() })
-    setNewCategoryName('')
-    setShowNewCategory(false)
-    router.refresh()
+  function handleMonthChange(value: string) {
+    router.push(`/transactions?month=${value}`)
   }
+
+  const total = initialTransactions.reduce((sum, t) => sum + Number(t.amount), 0)
 
   function handleExport() {
     const rows = initialTransactions.map((t) => ({
@@ -61,41 +55,34 @@ export default function TransactionsTable({
     const worksheet = XLSX.utils.json_to_sheet(rows)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Pengeluaran')
-    const filename = `pengeluaran_${new Date().toISOString().slice(0, 10)}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    const monthLabel = monthOptions.find((m) => m.value === selectedMonth)?.label ?? selectedMonth
+    XLSX.writeFile(workbook, `pengeluaran_${monthLabel.replace(/\s/g, '_')}.xlsx`)
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4 gap-2">
-        <button onClick={() => setShowNewCategory(!showNewCategory)} className="btn-secondary text-xs px-3 py-2 flex items-center gap-1 font-medium">
-          <Plus size={14} />
-          Kategori baru
-        </button>
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+        <select
+          value={selectedMonth}
+          onChange={(e) => handleMonthChange(e.target.value)}
+          className="px-3 py-2 text-sm"
+        >
+          {monthOptions.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
         <button onClick={handleExport} disabled={initialTransactions.length === 0} className="btn-primary text-xs px-3 py-2 flex items-center gap-1 font-medium">
           <Download size={14} />
           Export ke Excel
         </button>
       </div>
 
-      {showNewCategory && (
-        <form onSubmit={handleAddCategory} className="flex gap-2 mb-4">
-          <input
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Nama kategori baru"
-            className="flex-1 px-3 py-2 text-sm"
-          />
-          <button type="submit" className="btn-primary px-4 py-2 text-sm font-medium">
-            Tambah
-          </button>
-        </form>
-      )}
-
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden mb-3">
         {initialTransactions.length === 0 ? (
           <p className="text-sm py-12 text-center" style={{ color: 'var(--ink-soft)' }}>
-            Belum ada transaksi. Yuk catat lewat menu &quot;Catat&quot;.
+            Belum ada transaksi di bulan ini.
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -138,6 +125,12 @@ export default function TransactionsTable({
           </table>
         )}
       </div>
+
+      {initialTransactions.length > 0 && (
+        <p className="text-sm text-right font-medium">
+          Total bulan ini: Rp{total.toLocaleString('id-ID')}
+        </p>
+      )}
     </div>
   )
 }

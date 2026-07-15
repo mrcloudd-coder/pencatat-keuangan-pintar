@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import DashboardCharts from './charts'
+import IncomeManager from './income-manager'
+import QuickChat from './quick-chat'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -12,14 +15,16 @@ export default async function DashboardPage() {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
 
-  const [{ data: income }, { data: transactions }] = await Promise.all([
-    supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', startOfMonth),
+  const [{ data: income }, { data: transactions }, { data: categories }] = await Promise.all([
+    supabase.from('income').select('id, amount, source, date').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
     supabase
       .from('transactions')
       .select('id, item, amount, date, category:categories(name, color)')
       .eq('user_id', user.id)
       .gte('date', startOfMonth)
-      .order('date', { ascending: false }),
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabase.from('categories').select('id, name').order('name'),
   ])
 
   const totalIncome = (income ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
@@ -35,14 +40,16 @@ export default async function DashboardPage() {
     byCategory[name].value += Number(t.amount)
   }
 
+  const previewRows = (transactions ?? []).slice(0, 15)
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-xl font-semibold mb-1">Ringkasan bulan ini</h1>
+      <h1 className="text-xl font-semibold mb-1">Beranda</h1>
       <p className="text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
         {now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-5">
           <p className="text-xs mb-1" style={{ color: 'var(--ink-soft)' }}>Pemasukan</p>
           <p className="text-2xl font-semibold" style={{ color: 'var(--primary)' }}>
@@ -63,11 +70,69 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <DashboardCharts
-        categoryData={Object.values(byCategory)}
-        totalIncome={totalIncome}
-        totalExpense={totalExpense}
-      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <QuickChat categories={categories ?? []} />
+        <div className="card p-5">
+          <IncomeManager incomeList={income ?? []} />
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <DashboardCharts
+          categoryData={Object.values(byCategory)}
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+        />
+      </div>
+
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium">Transaksi terbaru</h2>
+          <Link href="/transactions" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
+            Lihat semua riwayat →
+          </Link>
+        </div>
+        {previewRows.length === 0 ? (
+          <p className="text-sm py-6 text-center" style={{ color: 'var(--ink-soft)' }}>
+            Belum ada transaksi bulan ini
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left" style={{ background: 'var(--bg)' }}>
+                  <th className="px-3 py-2 font-medium text-xs" style={{ color: 'var(--ink-soft)' }}>Tanggal</th>
+                  <th className="px-3 py-2 font-medium text-xs" style={{ color: 'var(--ink-soft)' }}>Item</th>
+                  <th className="px-3 py-2 font-medium text-xs" style={{ color: 'var(--ink-soft)' }}>Kategori</th>
+                  <th className="px-3 py-2 font-medium text-xs text-right" style={{ color: 'var(--ink-soft)' }}>Jumlah</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previewRows.map((t) => {
+                  const cat = Array.isArray(t.category) ? t.category[0] : t.category
+                  return (
+                    <tr key={t.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs">
+                        {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      </td>
+                      <td className="px-3 py-2 text-xs">{t.item}</td>
+                      <td className="px-3 py-2 text-xs">
+                        <span
+                          className="px-2 py-0.5 rounded-full"
+                          style={{ background: (cat?.color ?? '#6b7280') + '20', color: cat?.color ?? '#6b7280' }}
+                        >
+                          {cat?.name ?? 'Lainnya'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-right whitespace-nowrap">Rp{Number(t.amount).toLocaleString('id-ID')}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

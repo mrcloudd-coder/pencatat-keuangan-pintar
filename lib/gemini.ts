@@ -4,7 +4,9 @@ export type ParsedTransaction = {
   jumlah: number
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash'
+// Pakai alias "latest" supaya otomatis ikut model flash terbaru yang stabil,
+// jadi nggak perlu update kode manual tiap kali Google deprecate versi lama.
+const GEMINI_MODEL = 'gemini-flash-latest'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 /**
