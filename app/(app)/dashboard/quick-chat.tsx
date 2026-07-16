@@ -132,6 +132,13 @@ export default function QuickChat({ categories: initialCategories }: { categorie
         </button>
       </form>
 
+      {loading && (
+        <div className="text-xs mb-3 flex items-center gap-1.5" style={{ color: 'var(--ink-soft)' }}>
+          <Loader2 size={12} className="animate-spin" />
+          AI sedang membaca chatmu...
+        </div>
+      )}
+
       {error && (
         <div className="text-sm mb-3" style={{ color: 'var(--danger)' }}>
           {error}

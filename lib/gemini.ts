@@ -35,18 +35,36 @@ ATURAN:
 Format output:
 [{"item": "...", "kategori": "...", "jumlah": 0}]`
 
-  const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: chatText }] }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-      },
-    }),
-  })
+  async function callGemini(withThinkingOff: boolean) {
+    const generationConfig: Record<string, unknown> = {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+      maxOutputTokens: 800,
+    }
+    // Matikan "thinking mode" — task ini cuma extraction sederhana,
+    // nggak butuh reasoning panjang, jadi ini mempercepat respons signifikan.
+    if (withThinkingOff) {
+      generationConfig.thinkingConfig = { thinkingBudget: 0 }
+    }
+
+    return fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: chatText }] }],
+        generationConfig,
+      }),
+    })
+  }
+
+  let response = await callGemini(true)
+
+  // Kalau model yang sedang aktif di balik alias "latest" belum/tidak
+  // mendukung thinkingBudget, coba ulang tanpa parameter itu.
+  if (response.status === 400) {
+    response = await callGemini(false)
+  }
 
   if (!response.ok) {
     const errText = await response.text()

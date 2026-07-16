@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Download, Trash2 } from 'lucide-react'
+import { Download, Trash2, Pencil, Check, X } from 'lucide-react'
 
 type Category = { id: string; name: string; color: string }
 type Transaction = {
@@ -21,12 +22,14 @@ function getCategory(t: Transaction): Category | null {
 
 export default function TransactionsTable({
   initialTransactions,
+  categories,
   monthNames,
   yearOptions,
   selectedYear,
   selectedMonth,
 }: {
   initialTransactions: Transaction[]
+  categories: Category[]
   monthNames: string[]
   yearOptions: number[]
   selectedYear: number
@@ -35,9 +38,54 @@ export default function TransactionsTable({
   const supabase = createClient()
   const router = useRouter()
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editItem, setEditItem] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editCategoryId, setEditCategoryId] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   async function handleDelete(id: string) {
     if (!confirm('Hapus transaksi ini?')) return
     await supabase.from('transactions').delete().eq('id', id)
+    router.refresh()
+  }
+
+  function startEdit(t: Transaction) {
+    setEditingId(t.id)
+    setEditItem(t.item)
+    setEditAmount(String(t.amount))
+    setEditCategoryId(getCategory(t)?.id ?? '')
+    setEditDate(t.date)
+    setError(null)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setError(null)
+  }
+
+  async function saveEdit(id: string) {
+    if (!editItem.trim() || !editAmount) return
+    setSaving(true)
+    setError(null)
+    const { error: updateErr } = await supabase
+      .from('transactions')
+      .update({
+        item: editItem.trim(),
+        amount: Number(editAmount),
+        category_id: editCategoryId || null,
+        date: editDate,
+      })
+      .eq('id', id)
+
+    setSaving(false)
+    if (updateErr) {
+      setError('Gagal menyimpan perubahan: ' + updateErr.message)
+      return
+    }
+    setEditingId(null)
     router.refresh()
   }
 
@@ -93,6 +141,12 @@ export default function TransactionsTable({
         </button>
       </div>
 
+      {error && (
+        <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>
+          {error}
+        </p>
+      )}
+
       <div className="card overflow-hidden mb-3">
         {initialTransactions.length === 0 ? (
           <p className="text-sm py-12 text-center" style={{ color: 'var(--ink-soft)' }}>
@@ -100,7 +154,7 @@ export default function TransactionsTable({
           </p>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[500px]">
+          <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="text-left" style={{ background: 'var(--bg)' }}>
                 <th className="px-4 py-3 font-medium" style={{ color: 'var(--ink-soft)' }}>Tanggal</th>
@@ -113,6 +167,62 @@ export default function TransactionsTable({
             <tbody>
               {initialTransactions.map((t) => {
                 const cat = getCategory(t)
+                const isEditing = editingId === t.id
+
+                if (isEditing) {
+                  return (
+                    <tr key={t.id} className="border-t" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                      <td className="px-2 py-2">
+                        <input
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          value={editItem}
+                          onChange={(e) => setEditItem(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <select
+                          value={editCategoryId}
+                          onChange={(e) => setEditCategoryId(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs"
+                        >
+                          <option value="">Lainnya</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs text-right"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => saveEdit(t.id)} disabled={saving} style={{ color: 'var(--primary)' }}>
+                            <Check size={16} />
+                          </button>
+                          <button onClick={cancelEdit} style={{ color: 'var(--ink-soft)' }}>
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }
+
                 return (
                   <tr key={t.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -128,10 +238,15 @@ export default function TransactionsTable({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">Rp{t.amount.toLocaleString('id-ID')}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => handleDelete(t.id)} style={{ color: 'var(--danger)' }}>
-                        <Trash2 size={14} />
-                      </button>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => startEdit(t)} style={{ color: 'var(--ink-soft)' }}>
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(t.id)} style={{ color: 'var(--danger)' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

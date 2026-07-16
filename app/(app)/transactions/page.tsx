@@ -26,14 +26,17 @@ export default async function TransactionsPage({
   const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().slice(0, 10)
   const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().slice(0, 10)
 
-  const { data: transactions } = await supabase
-    .from('transactions')
-    .select('id, item, amount, date, category:categories(id, name, color)')
-    .eq('user_id', user.id)
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false })
+  const [{ data: transactions }, { data: categories }] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('id, item, amount, date, category:categories(id, name, color)')
+      .eq('user_id', user.id)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabase.from('categories').select('id, name, color').order('name'),
+  ])
 
   // Pilihan tahun: 4 tahun ke belakang sampai tahun sekarang
   const yearOptions = Array.from({ length: 5 }).map((_, i) => now.getFullYear() - i)
@@ -47,6 +50,7 @@ export default async function TransactionsPage({
 
       <TransactionsTable
         initialTransactions={transactions ?? []}
+        categories={categories ?? []}
         monthNames={MONTH_NAMES}
         yearOptions={yearOptions}
         selectedYear={selectedYear}
