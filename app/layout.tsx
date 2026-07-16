@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Catatan Keuangan AI",
-  description: "Catat pengeluaranmu cukup dengan chat",
+  title: "Catatan Keuangan AI · by cloud.studio",
+  description: "Catat pengeluaranmu cukup dengan chat — by cloud.studio",
   manifest: "/manifest.json",
   icons: {
     icon: [

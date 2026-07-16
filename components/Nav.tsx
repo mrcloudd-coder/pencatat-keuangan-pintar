@@ -3,13 +3,15 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Home, Tag, List, LogOut } from 'lucide-react'
+import { Home, Tag, List, LogOut, MessageCircleQuestion } from 'lucide-react'
 
 const links = [
   { href: '/dashboard', label: 'Beranda', icon: Home },
   { href: '/categories', label: 'Kategori', icon: Tag },
   { href: '/transactions', label: 'Riwayat', icon: List },
 ]
+
+const TELEGRAM_CONTACT = 'https://t.me/mrclooudd'
 
 export default function Nav() {
   const pathname = usePathname()
@@ -26,9 +28,14 @@ export default function Nav() {
     <>
       {/* Top bar - desktop */}
       <header className="hidden sm:flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-        <span className="font-semibold" style={{ color: 'var(--primary)' }}>
-          Catatan Keuangan AI
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-semibold" style={{ color: 'var(--primary)' }}>
+            Catatan Keuangan AI
+          </span>
+          <span className="text-xs italic" style={{ color: 'var(--ink-soft)' }}>
+            by cloud.studio
+          </span>
+        </div>
         <nav className="flex items-center gap-1">
           {links.map(({ href, label, icon: Icon }) => (
             <Link
@@ -76,6 +83,18 @@ export default function Nav() {
           Keluar
         </button>
       </nav>
+
+      {/* Floating contact button - laporan bug/kendala */}
+      <a
+        href={TELEGRAM_CONTACT}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed right-4 z-20 flex items-center justify-center w-12 h-12 rounded-full shadow-lg bottom-20 sm:bottom-6"
+        style={{ background: 'var(--primary)', color: 'white' }}
+        title="Ada kendala? Chat kami di Telegram"
+      >
+        <MessageCircleQuestion size={22} />
+      </a>
     </>
   )
 }

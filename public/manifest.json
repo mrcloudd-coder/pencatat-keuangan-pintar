@@ -1,7 +1,7 @@
 {
-  "name": "Catatan Keuangan AI",
+  "name": "Catatan Keuangan AI · by cloud.studio",
   "short_name": "Keuangan AI",
-  "description": "Catat pengeluaranmu cukup dengan chat, AI yang urus sisanya",
+  "description": "Catat pengeluaranmu cukup dengan chat, AI yang urus sisanya — by cloud.studio",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#f6f5f1",
