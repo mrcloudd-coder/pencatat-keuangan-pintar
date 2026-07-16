@@ -4,9 +4,10 @@ export type ParsedTransaction = {
   jumlah: number
 }
 
-// Pakai alias "latest" supaya otomatis ikut model flash terbaru yang stabil,
-// jadi nggak perlu update kode manual tiap kali Google deprecate versi lama.
-const GEMINI_MODEL = 'gemini-flash-latest'
+// Pakai versi stabil Flash-Lite: didesain khusus untuk task ekstraksi
+// sederhana & volume tinggi, jauh lebih cepat, dan TIDAK eksperimental
+// (beda dengan alias "-latest" yang rate limit-nya jauh lebih ketat).
+const GEMINI_MODEL = 'gemini-2.5-flash-lite'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 /**
