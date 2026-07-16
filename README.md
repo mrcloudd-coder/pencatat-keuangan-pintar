@@ -81,9 +81,9 @@ supabase/
 ```
 
 ## Catatan
-- Model Gemini yang dipakai: `gemini-2.5-flash-lite` — versi stabil (bukan alias
-  eksperimental), dioptimalkan untuk task ekstraksi sederhana & respons cepat,
-  masih di free tier. Bisa diganti di `lib/gemini.ts` kalau nanti mau upgrade model.
+- Model Gemini yang dipakai: `gemini-3.1-flash-lite` — model generasi terbaru
+  (GA, bukan alias eksperimental), dioptimalkan untuk kecepatan & task ekstraksi
+  sederhana, masih di free tier. Bisa diganti di `lib/gemini.ts` kalau nanti mau upgrade model.
 - Free tier Gemini ada limit rate (request per menit/hari) -- cukup untuk testing dan
   early users, tapi kalau user sudah banyak, perlu upgrade ke paid tier.
 - Jangan commit file `.env.local` ke git (sudah otomatis di-ignore lewat `.gitignore`).

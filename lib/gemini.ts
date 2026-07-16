@@ -4,10 +4,11 @@ export type ParsedTransaction = {
   jumlah: number
 }
 
-// Pakai versi stabil Flash-Lite: didesain khusus untuk task ekstraksi
-// sederhana & volume tinggi, jauh lebih cepat, dan TIDAK eksperimental
-// (beda dengan alias "-latest" yang rate limit-nya jauh lebih ketat).
-const GEMINI_MODEL = 'gemini-2.5-flash-lite'
+// Gemini 3.1 Flash-Lite: model generasi terbaru (GA, bukan eksperimental),
+// dioptimalkan khusus untuk task ekstraksi sederhana & volume tinggi dengan
+// latensi serendah mungkin. Model generasi 2.5 sudah ditutup untuk API key baru,
+// jadi kita pakai generasi 3.x yang memang jadi standar saat ini.
+const GEMINI_MODEL = 'gemini-3.1-flash-lite'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
 /**
@@ -36,35 +37,49 @@ ATURAN:
 Format output:
 [{"item": "...", "kategori": "...", "jumlah": 0}]`
 
-  async function callGemini(withThinkingOff: boolean) {
+  async function callGemini(withThinkingLevel: boolean) {
     const generationConfig: Record<string, unknown> = {
       temperature: 0.1,
       responseMimeType: 'application/json',
-      maxOutputTokens: 800,
+      maxOutputTokens: 500,
     }
-    // Matikan "thinking mode" — task ini cuma extraction sederhana,
-    // nggak butuh reasoning panjang, jadi ini mempercepat respons signifikan.
-    if (withThinkingOff) {
-      generationConfig.thinkingConfig = { thinkingBudget: 0 }
+    if (withThinkingLevel) {
+      generationConfig.thinkingConfig = { thinkingLevel: 'low' }
     }
 
-    return fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: chatText }] }],
-        generationConfig,
-      }),
-    })
+    // Batasi tiap percobaan maksimal 15 detik — kalau macet, gagal cepat
+    // dan kasih pesan error, daripada user nunggu lama tanpa kepastian.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
+    try {
+      return await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: chatText }] }],
+          generationConfig,
+        }),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
   }
 
-  let response = await callGemini(true)
-
-  // Kalau model yang sedang aktif di balik alias "latest" belum/tidak
-  // mendukung thinkingBudget, coba ulang tanpa parameter itu.
-  if (response.status === 400) {
-    response = await callGemini(false)
+  let response: Response
+  try {
+    response = await callGemini(true)
+    // Fallback sekali kalau parameter thinkingConfig ditolak (model beda generasi)
+    if (response.status === 400) {
+      response = await callGemini(false)
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('AI terlalu lama merespons (lebih dari 15 detik). Coba lagi sebentar lagi.')
+    }
+    throw err
   }
 
   if (!response.ok) {
