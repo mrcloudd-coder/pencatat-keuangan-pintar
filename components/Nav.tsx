@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Home, Tag, List, LogOut, MessageCircleQuestion } from 'lucide-react'
+import { Home, Tag, List, LogOut, MessageCircleQuestion, Wallet } from 'lucide-react'
 
 const links = [
   { href: '/dashboard', label: 'Beranda', icon: Home },
+  { href: '/accounts', label: 'Rekening', icon: Wallet },
   { href: '/categories', label: 'Kategori', icon: Tag },
   { href: '/transactions', label: 'Riwayat', icon: List },
 ]

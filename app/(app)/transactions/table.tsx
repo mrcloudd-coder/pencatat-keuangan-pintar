@@ -7,22 +7,29 @@ import { useRouter } from 'next/navigation'
 import { Download, Trash2, Pencil, Check, X } from 'lucide-react'
 
 type Category = { id: string; name: string; color: string }
+type Account = { id: string; name: string; color: string }
 type Transaction = {
   id: string
   item: string
   amount: number
   date: string
   category: Category | Category[] | null
+  account: Account | Account[] | null
 }
 
 function getCategory(t: Transaction): Category | null {
   if (!t.category) return null
   return Array.isArray(t.category) ? t.category[0] ?? null : t.category
 }
+function getAccount(t: Transaction): Account | null {
+  if (!t.account) return null
+  return Array.isArray(t.account) ? t.account[0] ?? null : t.account
+}
 
 export default function TransactionsTable({
   initialTransactions,
   categories,
+  accounts,
   monthNames,
   yearOptions,
   selectedYear,
@@ -30,6 +37,7 @@ export default function TransactionsTable({
 }: {
   initialTransactions: Transaction[]
   categories: Category[]
+  accounts: Account[]
   monthNames: string[]
   yearOptions: number[]
   selectedYear: number
@@ -42,6 +50,7 @@ export default function TransactionsTable({
   const [editItem, setEditItem] = useState('')
   const [editAmount, setEditAmount] = useState('')
   const [editCategoryId, setEditCategoryId] = useState('')
+  const [editAccountId, setEditAccountId] = useState('')
   const [editDate, setEditDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +66,7 @@ export default function TransactionsTable({
     setEditItem(t.item)
     setEditAmount(String(t.amount))
     setEditCategoryId(getCategory(t)?.id ?? '')
+    setEditAccountId(getAccount(t)?.id ?? '')
     setEditDate(t.date)
     setError(null)
   }
@@ -76,6 +86,7 @@ export default function TransactionsTable({
         item: editItem.trim(),
         amount: Number(editAmount),
         category_id: editCategoryId || null,
+        account_id: editAccountId || null,
         date: editDate,
       })
       .eq('id', id)
@@ -100,6 +111,7 @@ export default function TransactionsTable({
       Tanggal: t.date,
       Item: t.item,
       Kategori: getCategory(t)?.name ?? '-',
+      Rekening: getAccount(t)?.name ?? '-',
       Jumlah: t.amount,
     }))
     const worksheet = XLSX.utils.json_to_sheet(rows)
@@ -154,12 +166,13 @@ export default function TransactionsTable({
           </p>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[560px]">
+          <table className="w-full text-sm min-w-[680px]">
             <thead>
               <tr className="text-left" style={{ background: 'var(--bg)' }}>
                 <th className="px-4 py-3 font-medium" style={{ color: 'var(--ink-soft)' }}>Tanggal</th>
                 <th className="px-4 py-3 font-medium" style={{ color: 'var(--ink-soft)' }}>Item</th>
                 <th className="px-4 py-3 font-medium" style={{ color: 'var(--ink-soft)' }}>Kategori</th>
+                <th className="px-4 py-3 font-medium" style={{ color: 'var(--ink-soft)' }}>Rekening</th>
                 <th className="px-4 py-3 font-medium text-right" style={{ color: 'var(--ink-soft)' }}>Jumlah</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -167,6 +180,7 @@ export default function TransactionsTable({
             <tbody>
               {initialTransactions.map((t) => {
                 const cat = getCategory(t)
+                const acc = getAccount(t)
                 const isEditing = editingId === t.id
 
                 if (isEditing) {
@@ -197,6 +211,20 @@ export default function TransactionsTable({
                           {categories.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2">
+                        <select
+                          value={editAccountId}
+                          onChange={(e) => setEditAccountId(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs"
+                        >
+                          <option value="">Tanpa rekening</option>
+                          {accounts.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name}
                             </option>
                           ))}
                         </select>
@@ -235,6 +263,14 @@ export default function TransactionsTable({
                         style={{ background: (cat?.color ?? '#6b7280') + '20', color: cat?.color ?? '#6b7280' }}
                       >
                         {cat?.name ?? 'Lainnya'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{ background: (acc?.color ?? '#6b7280') + '20', color: acc?.color ?? '#6b7280' }}
+                      >
+                        {acc?.name ?? '-'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">Rp{t.amount.toLocaleString('id-ID')}</td>

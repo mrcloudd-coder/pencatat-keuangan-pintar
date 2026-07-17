@@ -5,35 +5,58 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 
-type IncomeRow = { id: string; amount: number; source: string; date: string }
+type IncomeRow = { id: string; amount: number; source: string; date: string; account_id: string | null }
+type Account = { id: string; name: string; color: string }
 
-export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] }) {
+export default function IncomeManager({
+  incomeList,
+  accounts,
+}: {
+  incomeList: IncomeRow[]
+  accounts: Account[]
+}) {
   const [showForm, setShowForm] = useState(false)
   const [amount, setAmount] = useState('')
   const [source, setSource] = useState('')
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAmount, setEditAmount] = useState('')
   const [editSource, setEditSource] = useState('')
+  const [editAccountId, setEditAccountId] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
+  function accountName(id: string | null) {
+    return accounts.find((a) => a.id === id)?.name ?? 'Tanpa rekening'
+  }
+  function accountColor(id: string | null) {
+    return accounts.find((a) => a.id === id)?.color ?? '#6b7280'
+  }
+
   async function handleAddIncome(e: React.FormEvent) {
     e.preventDefault()
-    if (!amount) return
+    if (!amount || !accountId) return
     setSaving(true)
+    setError(null)
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
 
-    await supabase.from('income').insert({
+    const { error: insertErr } = await supabase.from('income').insert({
       user_id: user.id,
       amount: Number(amount),
       source: source || 'Pemasukan',
+      account_id: accountId,
     })
 
     setSaving(false)
+    if (insertErr) {
+      setError('Gagal menyimpan: ' + insertErr.message)
+      return
+    }
     setShowForm(false)
     setAmount('')
     setSource('')
@@ -44,10 +67,14 @@ export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] 
     setEditingId(row.id)
     setEditAmount(String(row.amount))
     setEditSource(row.source)
+    setEditAccountId(row.account_id ?? accounts[0]?.id ?? '')
   }
 
   async function saveEdit(id: string) {
-    await supabase.from('income').update({ amount: Number(editAmount), source: editSource }).eq('id', id)
+    await supabase
+      .from('income')
+      .update({ amount: Number(editAmount), source: editSource, account_id: editAccountId || null })
+      .eq('id', id)
     setEditingId(null)
     router.refresh()
   }
@@ -73,6 +100,17 @@ export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] 
 
       {showForm && (
         <form onSubmit={handleAddIncome} className="flex flex-col gap-2 mb-3 p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
+          <select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            required
+            className="px-3 py-2 text-sm"
+          >
+            <option value="" disabled>Masuk ke rekening...</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
           <input
             type="number"
             placeholder="Jumlah (contoh: 1500000)"
@@ -87,7 +125,8 @@ export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] 
             onChange={(e) => setSource(e.target.value)}
             className="px-3 py-2 text-sm"
           />
-          <button type="submit" disabled={saving} className="btn-primary py-2 text-sm font-medium">
+          {error && <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>}
+          <button type="submit" disabled={saving || !accountId} className="btn-primary py-2 text-sm font-medium">
             {saving ? 'Menyimpan...' : 'Simpan pemasukan'}
           </button>
         </form>
@@ -103,6 +142,15 @@ export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] 
             <div key={row.id} className="flex items-center gap-2 p-2.5 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>
               {editingId === row.id ? (
                 <>
+                  <select
+                    value={editAccountId}
+                    onChange={(e) => setEditAccountId(e.target.value)}
+                    className="w-28 px-2 py-1.5 text-xs"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
                   <input
                     type="number"
                     value={editAmount}
@@ -112,7 +160,7 @@ export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] 
                   <input
                     value={editSource}
                     onChange={(e) => setEditSource(e.target.value)}
-                    className="w-28 px-2 py-1.5 text-sm"
+                    className="w-24 px-2 py-1.5 text-sm"
                   />
                   <button onClick={() => saveEdit(row.id)} style={{ color: 'var(--primary)' }}>
                     <Check size={16} />
@@ -123,6 +171,12 @@ export default function IncomeManager({ incomeList }: { incomeList: IncomeRow[] 
                 </>
               ) : (
                 <>
+                  <span
+                    className="text-xs px-2 py-1 rounded-full whitespace-nowrap"
+                    style={{ background: accountColor(row.account_id) + '20', color: accountColor(row.account_id) }}
+                  >
+                    {accountName(row.account_id)}
+                  </span>
                   <span className="flex-1">Rp{row.amount.toLocaleString('id-ID')}</span>
                   <span style={{ color: 'var(--ink-soft)' }}>{row.source}</span>
                   <button onClick={() => startEdit(row)} style={{ color: 'var(--ink-soft)' }}>

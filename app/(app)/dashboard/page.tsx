@@ -3,6 +3,7 @@ import DashboardCharts from './charts'
 import IncomeManager from './income-manager'
 import QuickChat from './quick-chat'
 import AnnualCharts from './annual-charts'
+import AccountBalanceCharts from './account-balance'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -23,16 +24,17 @@ export default async function DashboardPage() {
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
   ]
 
-  const [{ data: income }, { data: transactions }, { data: categories }, { data: yearTransactions }, { data: yearIncome }] = await Promise.all([
-    supabase.from('income').select('id, amount, source, date').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
+  const [{ data: income }, { data: transactions }, { data: categories }, { data: accounts }, { data: yearTransactions }, { data: yearIncome }] = await Promise.all([
+    supabase.from('income').select('id, amount, source, date, account_id').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
     supabase
       .from('transactions')
-      .select('id, item, amount, date, category:categories(name, color)')
+      .select('id, item, amount, date, account_id, category:categories(name, color)')
       .eq('user_id', user.id)
       .gte('date', startOfMonth)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase.from('categories').select('id, name').order('name'),
+    supabase.from('accounts').select('id, name, color').order('name'),
     supabase.from('transactions').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
     supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
   ])
@@ -63,6 +65,13 @@ export default async function DashboardPage() {
     if (!byCategory[name]) byCategory[name] = { name, value: 0, color }
     byCategory[name].value += Number(t.amount)
   }
+
+  // Agregasi saldo per rekening (pemasukan & pengeluaran bulan ini)
+  const accountBalanceData = (accounts ?? []).map((acc) => {
+    const accIncome = (income ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
+    const accExpense = (transactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
+    return { id: acc.id, name: acc.name, color: acc.color, income: accIncome, expense: accExpense }
+  })
 
   const previewRows = (transactions ?? []).slice(0, 15)
 
@@ -95,10 +104,14 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <QuickChat categories={categories ?? []} />
+        <QuickChat categories={categories ?? []} accounts={accounts ?? []} />
         <div className="card p-5">
-          <IncomeManager incomeList={income ?? []} />
+          <IncomeManager incomeList={income ?? []} accounts={accounts ?? []} />
         </div>
+      </div>
+
+      <div className="mb-6">
+        <AccountBalanceCharts data={accountBalanceData} />
       </div>
 
       <div className="mb-6">

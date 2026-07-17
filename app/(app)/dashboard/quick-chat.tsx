@@ -3,12 +3,20 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Loader2, Send, Check, X, Pencil } from 'lucide-react'
+import { Loader2, Send, Check, X, Pencil, Wallet } from 'lucide-react'
 
 type ParsedItem = { item: string; kategori: string; jumlah: number }
 type Category = { id: string; name: string }
+type Account = { id: string; name: string; color: string }
 
-export default function QuickChat({ categories: initialCategories }: { categories: Category[] }) {
+export default function QuickChat({
+  categories: initialCategories,
+  accounts,
+}: {
+  categories: Category[]
+  accounts: Account[]
+}) {
+  const [accountId, setAccountId] = useState('')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,9 +27,11 @@ export default function QuickChat({ categories: initialCategories }: { categorie
   const supabase = createClient()
   const router = useRouter()
 
+  const selectedAccount = accounts.find((a) => a.id === accountId)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!text.trim()) return
+    if (!text.trim() || !accountId) return
     setLoading(true)
     setError(null)
     setSavedMsg(null)
@@ -60,7 +70,7 @@ export default function QuickChat({ categories: initialCategories }: { categorie
   }
 
   async function confirmSave() {
-    if (!pending || pending.length === 0) return
+    if (!pending || pending.length === 0 || !accountId) return
     setSaving(true)
     setError(null)
 
@@ -92,7 +102,7 @@ export default function QuickChat({ categories: initialCategories }: { categorie
         cat = newCat
         currentCategories.push(newCat)
       }
-      rows.push({ user_id: user.id, item: t.item, category_id: cat.id, amount: t.jumlah })
+      rows.push({ user_id: user.id, item: t.item, category_id: cat.id, amount: t.jumlah, account_id: accountId })
     }
 
     const { error: insertErr } = await supabase.from('transactions').insert(rows)
@@ -103,7 +113,7 @@ export default function QuickChat({ categories: initialCategories }: { categorie
     }
 
     setCategories(currentCategories)
-    setSavedMsg(`${rows.length} transaksi berhasil disimpan.`)
+    setSavedMsg(`${rows.length} transaksi berhasil disimpan dari ${selectedAccount?.name ?? 'rekening'}.`)
     setPending(null)
     setText('')
     setSaving(false)
@@ -116,21 +126,44 @@ export default function QuickChat({ categories: initialCategories }: { categorie
     <div className="card p-5">
       <h2 className="text-sm font-medium mb-1">Catat pengeluaran</h2>
       <p className="text-xs mb-3" style={{ color: 'var(--ink-soft)' }}>
-        Contoh: &quot;jajan cilok 15k terus isi bensin 30k&quot;
+        Pilih rekening sumber dana dulu, baru catat pengeluaranmu.
       </p>
+
+      <div className="mb-3">
+        <label className="flex items-center gap-1.5 text-xs mb-1.5 font-medium" style={{ color: 'var(--ink-soft)' }}>
+          <Wallet size={13} />
+          Rekening sumber dana
+        </label>
+        <select
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          className="w-full px-3 py-2 text-sm"
+        >
+          <option value="">Pilih rekening dulu...</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+      </div>
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Tulis pengeluaranmu..."
+          placeholder={accountId ? 'Tulis pengeluaranmu...' : 'Pilih rekening dulu untuk mulai catat'}
           className="flex-1 px-3 py-2 text-sm"
-          disabled={loading}
+          disabled={loading || !accountId}
         />
-        <button type="submit" disabled={loading || !text.trim()} className="btn-primary px-3 flex items-center justify-center">
+        <button type="submit" disabled={loading || !text.trim() || !accountId} className="btn-primary px-3 flex items-center justify-center">
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </form>
+
+      {!accountId && (
+        <p className="text-xs mb-3" style={{ color: 'var(--ink-soft)' }}>
+          🔒 Kolom chat terkunci sampai kamu pilih rekening sumber dana di atas.
+        </p>
+      )}
 
       {loading && (
         <div className="text-xs mb-3 flex items-center gap-1.5" style={{ color: 'var(--ink-soft)' }}>
@@ -153,6 +186,9 @@ export default function QuickChat({ categories: initialCategories }: { categorie
 
       {pending && pending.length > 0 && (
         <div className="p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
+          <p className="text-xs mb-2" style={{ color: 'var(--ink-soft)' }}>
+            Semua item ini akan tercatat keluar dari <strong style={{ color: 'var(--primary)' }}>{selectedAccount?.name}</strong>
+          </p>
           <div className="space-y-2 mb-3">
             {pending.map((t, i) => (
               <div key={i} className="flex items-center gap-1.5">
