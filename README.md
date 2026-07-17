@@ -87,3 +87,33 @@ supabase/
 - Free tier Gemini ada limit rate (request per menit/hari) -- cukup untuk testing dan
   early users, tapi kalau user sudah banyak, perlu upgrade ke paid tier.
 - Jangan commit file `.env.local` ke git (sudah otomatis di-ignore lewat `.gitignore`).
+
+## Menambah Banyak API Key (biar nggak gampang kena limit)
+
+Karena limit gratis Gemini itu per **Google Cloud project**, kamu bisa bikin beberapa
+project terpisah di Google AI Studio, tiap project dapat jatah 1.500 request/hari
+sendiri-sendiri. Sistem sudah otomatis pindah ke key berikutnya kalau key yang lagi
+dipakai kena limit — user nggak akan sadar/terganggu.
+
+### Cara bikin API key tambahan
+1. Buka [aistudio.google.com](https://aistudio.google.com)
+2. Klik dropdown project di bagian atas (biasanya di sebelah nama project aktif)
+3. Pilih **"Create new project"** — kasih nama bebas, misal "keuangan-ai-2"
+4. Setelah project baru aktif, klik **"Get API Key"** -> **"Create API Key"**
+5. Copy API key baru itu
+6. Ulangi langkah 2-5 untuk bikin key ke-3, ke-4, dst sesuai kebutuhan
+
+### Cara pasang di aplikasi
+1. Buka dashboard **Vercel** -> project kamu -> **Settings** -> **Environment Variables**
+2. Cari variable `GEMINI_API_KEY` yang lama
+3. **Hapus** variable itu (atau biarkan saja, tidak akan dipakai lagi)
+4. Tambah variable baru:
+   - Key: `GEMINI_API_KEYS` (pakai **S** di akhir, beda dengan yang lama)
+   - Value: semua API key digabung dipisah koma, tanpa spasi, contoh:
+     ```
+     AQ.key_pertama,AQ.key_kedua,AQ.key_ketiga
+     ```
+5. Klik **Save**, lalu **redeploy** project (Vercel -> Deployments -> titik tiga di deployment terakhir -> Redeploy)
+
+Sistem akan otomatis coba key pertama dulu; kalau limitnya habis, otomatis lanjut ke
+key berikutnya di daftar, sampai salah satu berhasil.
